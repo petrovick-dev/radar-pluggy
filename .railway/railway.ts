@@ -7,7 +7,7 @@ export const partial = 'radar-pluggy'
 
 export default defineRailway(() => {
   const app = service('radar-pluggy', {
-    source: image('ghcr.io/petrovick/radar-pluggy:staging'),
+    source: image('ghcr.io/petrovick-dev/radar-pluggy:staging'),
     healthcheck: '/healthcheck',
     preDeploy: 'node node_modules/sequelize-cli/lib/sequelize db:migrate --env staging',
     // Domínio customizado, anexado à parte (MCP Railway `generate-domain`) — `config apply` recusa
