@@ -10,6 +10,8 @@ export default defineRailway(() => {
     source: image('ghcr.io/petrovick-dev/radar-pluggy:staging'),
     healthcheck: '/healthcheck',
     preDeploy: 'node node_modules/sequelize-cli/lib/sequelize db:migrate --env staging',
+    // Teto de recursos definido no dashboard; sem declarar aqui, `config apply` o removeria.
+    deploy: { limitOverride: { containers: { cpu: 2, memoryBytes: 2_000_000_000 } } },
     // Domínio customizado, anexado à parte (MCP Railway `generate-domain`) — `config apply` recusa
     // CRIAR domínio custom por IaC. Declarado aqui só como documentação do estado real.
     domains: ['radar-pluggy.petrovick.work', 'radar-pluggy.petrovick.dev'],
