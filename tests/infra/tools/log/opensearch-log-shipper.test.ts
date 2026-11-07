@@ -165,19 +165,6 @@ describe('OpenSearchLogShipper', () => {
     expect(closed).toBe(true)
   })
 
-  it('escrita depois do close vai para o stderr, nunca some', async () => {
-    const { sent, fetchImpl } = fakeFetch()
-    const stderr = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const writer = shipper(fetchImpl)
-    await writer.close()
-
-    writer.write('warn', '{"message":"tarde"}')
-    await writer.close()
-
-    expect(stderr).toHaveBeenCalledWith('{"message":"tarde"}')
-    expect(sent).toHaveLength(0)
-  })
-
   it('envio pendurado é abortado pelo timeout e o close termina', async () => {
     const fetchImpl = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
       init.signal?.addEventListener('abort', () => reject(init.signal?.reason))

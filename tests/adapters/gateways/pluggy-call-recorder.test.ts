@@ -130,7 +130,7 @@ describe('PluggyCallRecorder', () => {
     expect(() => recorder.record(baseEvent())).not.toThrow()
     // Se a rejeição escapasse sem tratamento, o processo de teste falharia com unhandled rejection.
     await flushMicrotasks()
-    // O aviso sai pelo destino de log do processo (OpenSearch fora do ambiente local), não pelo console.
+    // O aviso sai pelo `logWriter` do processo (stdout, mais o OpenSearch quando ligado).
     expect(written.map((entry) => entry.level)).toEqual(['warn'])
   })
 })

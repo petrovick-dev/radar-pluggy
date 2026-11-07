@@ -18,9 +18,8 @@ const DEFAULT_MAX_BUFFERED_LINES = 5000
 // seguraria o processo vivo pelo timeout padrão do fetch, que é de minutos.
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000
 
-// Destino único dos logs fora do ambiente local (OpenSearch do Aiven, API `_bulk`), mesmo desenho do
-// `opensearch-log-shipper.ts` do `oplab-radar-api`, sem o tee para stdout: decisão do usuário — local
-// escreve no stdout, qualquer outro ambiente escreve só aqui.
+// Cópia dos logs no OpenSearch do Aiven (API `_bulk`), mesmo desenho do `opensearch-log-shipper.ts`
+// do `oplab-radar-api`; o stdout continua recebendo tudo (`tee-log-writer.ts`).
 //
 // Falha de envio não é retentada: o lote é perdido e o motivo vai para o stderr, único canal que
 // sobra quando o próprio destino de log falhou.
@@ -37,7 +36,6 @@ export class OpenSearchLogShipper implements LogWriter {
   // Envios encadeados: um de cada vez, e `close()` sabe esperar o que já saiu do buffer e ainda
   // está em voo (o `splice` acontece antes do `await fetch`).
   private sending: Promise<void> = Promise.resolve()
-  private closed = false
 
   constructor(options: OpenSearchLogShipperOptions) {
     const parsedUrl = new URL(options.url)
@@ -59,12 +57,6 @@ export class OpenSearchLogShipper implements LogWriter {
   // A linha já é JSON gerado pelo `createLogger`; aqui só ganha o instante em que foi escrita, que o
   // OpenSearch precisa para ordenar e o stdout nunca precisou (a plataforma carimba a hora).
   readonly write = (_level: LogLevel, line: string): void => {
-    // Depois do `close()` ninguém mais envia (ex.: drenagem de webhook em segundo plano, que o
-    // encerramento não espera) — a linha vai para o stderr em vez de sumir.
-    if (this.closed) {
-      console.error(line)
-      return
-    }
     this.buffer.push(JSON.stringify({ '@timestamp': new Date().toISOString(), ...JSON.parse(line) }))
 
     if (this.buffer.length > this.maxBufferedLines) {
@@ -79,7 +71,6 @@ export class OpenSearchLogShipper implements LogWriter {
   }
 
   async close(): Promise<void> {
-    this.closed = true
     clearInterval(this.timer)
     while (this.buffer.length > 0) {
       await this.flush()

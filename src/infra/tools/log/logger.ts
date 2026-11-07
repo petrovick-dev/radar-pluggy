@@ -12,9 +12,9 @@ export interface Logger {
 
 export type LogLevel = 'info' | 'warn' | 'error'
 
-// Destino das linhas já sanitizadas. Um por processo (`logWriter` no container): stdout em ambiente
-// local, OpenSearch nos demais (`opensearch-log-shipper.ts`). `write` é propriedade (não método)
-// para poder ser passado solto a `createLogger`.
+// Destino das linhas já sanitizadas. Um por processo (`logWriter` no container): stdout, ou stdout e
+// OpenSearch juntos quando `OPENSEARCH_URL` está definida (`tee-log-writer.ts`). `write` é propriedade
+// (não método) para poder ser passado solto a `createLogger`.
 export interface LogWriter {
   readonly write: (level: LogLevel, line: string) => void
   close(): Promise<void>

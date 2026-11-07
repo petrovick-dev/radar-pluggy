@@ -11,7 +11,6 @@ import { CheckHealthInteractor } from '../../../src/interactors/health/check/che
 import { PersonRep } from '../../../src/adapters/repositories/person.rep.js'
 import { testAppConfig } from '../../support/test-app-config.js'
 import { consoleLogWriter } from '../../../src/infra/tools/log/logger.js'
-import { OpenSearchLogShipper } from '../../../src/infra/tools/log/opensearch-log-shipper.js'
 
 // Registro errado no container só aparece na hora de resolver — chave com typo, dependência que
 // ninguém registrou, ciclo. Este teste resolve a raiz do fluxo e força a construção da árvore
@@ -23,11 +22,11 @@ describe('container do processo', () => {
     await container.resolve('db').connections.main?.close()
   })
 
-  it('sem destino OpenSearch (ambiente local) os logs vão só para o stdout', () => {
+  it('sem OPENSEARCH_URL os logs vão só para o stdout', () => {
     expect(container.resolve('logWriter')).toBe(consoleLogWriter)
   })
 
-  it('com destino OpenSearch os logs vão só para o OpenSearch, sem stdout', async () => {
+  it('com OPENSEARCH_URL os logs vão para o stdout e para o OpenSearch', async () => {
     const remote = setupContainer({
       ...testAppConfig(),
       openSearchLog: { url: 'https://user:pass@opensearch.test:1', index: 'radar-pluggy-logs-test' },
@@ -36,17 +35,16 @@ describe('container do processo', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ errors: false }), { status: 200 }),
     )
-    const consoleSpies = [vi.spyOn(console, 'log'), vi.spyOn(console, 'warn'), vi.spyOn(console, 'error')]
+    const stdout = vi.spyOn(console, 'log').mockImplementation(() => {})
     try {
       const logWriter = remote.resolve('logWriter')
-      expect(logWriter).toBeInstanceOf(OpenSearchLogShipper)
 
       createScope(remote, 'test-request-id').resolve('logger').info('subiu')
       await logWriter.close()
 
       expect(fetchSpy).toHaveBeenCalledTimes(1)
       expect(String(fetchSpy.mock.calls[0]?.[1]?.body)).toContain('"message":"subiu"')
-      for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled()
+      expect(stdout).toHaveBeenCalledWith(expect.stringContaining('"message":"subiu"'))
     } finally {
       vi.restoreAllMocks()
     }
