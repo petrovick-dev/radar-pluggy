@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { tmpdir } from 'node:os'
+import { describe, expect, it, vi } from 'vitest'
 import { loadConfig } from '../../../src/infra/config/config.js'
 import { ApplicationError } from '../../../src/shared/application-error.js'
 import { validConfigEnv as validEnv } from '../../support/test-config-env.js'
@@ -37,6 +38,7 @@ describe('loadConfig', () => {
         password: '12345678',
         dialectOptions: {},
       },
+      openSearchLog: { url: 'https://user:pass@opensearch.test:12345', index: 'radar-pluggy-logs-test' },
     })
   })
 
@@ -109,6 +111,47 @@ describe('loadConfig', () => {
     expect(reasonOf(() => loadConfig(env))).toMatch(/webhookUrl/)
   })
 
+  function withOpenSearch(openSearch: unknown): NodeJS.ProcessEnv {
+    const env = validEnv()
+    const config = JSON.parse(env.CONFIG as string) as Record<string, unknown>
+    env.CONFIG = JSON.stringify({ ...config, log: openSearch === undefined ? undefined : { openSearch } })
+    return env
+  }
+
+  it('fora de development, sem log.openSearch recusa — o processo subiria sem destino de log', () => {
+    expect(reasonOf(() => loadConfig(withOpenSearch(undefined)))).toMatch(/log\.openSearch\.url/)
+  })
+
+  it.each([
+    ['sem índice', { url: 'https://user:pass@opensearch.test:1' }, /index/],
+    ['http://', { url: 'http://user:pass@opensearch.test:1', index: 'i' }, /https/],
+    ['sem usuário e senha', { url: 'https://opensearch.test:1', index: 'i' }, /user and password/],
+    ['url ilegível', { url: 'não é url', index: 'i' }, /url is invalid/],
+  ])('fora de development, log.openSearch %s recusa', (_case, openSearch, reason) => {
+    expect(reasonOf(() => loadConfig(withOpenSearch(openSearch)))).toMatch(reason)
+  })
+
+  it.each([undefined, 'development'])('NODE_ENV=%s (local) não exige nem devolve destino OpenSearch — log vai para o stdout', async (nodeEnv) => {
+    const remote = validEnv()
+    const dir = mkdtempSync(resolve(tmpdir(), 'radar-pluggy-config-'))
+    writeFileSync(resolve(dir, 'config.json'), remote.CONFIG as string)
+    writeFileSync(resolve(dir, 'databases.json'), remote.DATABASES as string)
+    // `CONFIG_DIR` é lido no import do módulo: recarrega o módulo com o diretório temporário.
+    vi.stubEnv('CONFIG_DIR', dir)
+    vi.resetModules()
+    try {
+      const { loadConfig: loadLocalConfig } = await import('../../../src/infra/config/config.js')
+      const env: NodeJS.ProcessEnv = { PLUGGY_CREDENTIAL_ENCRYPTION_KEY: remote.PLUGGY_CREDENTIAL_ENCRYPTION_KEY }
+      if (nodeEnv) env.NODE_ENV = nodeEnv
+
+      expect(loadLocalConfig(env).openSearchLog).toBeUndefined()
+    } finally {
+      vi.unstubAllEnvs()
+      vi.resetModules()
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   it('PORT (env var) vence CONFIG.http.port — é a plataforma quem injeta a porta', () => {
     const env = validEnv()
     env.PORT = '4000'
@@ -154,6 +197,7 @@ describe('loadConfig', () => {
     env.CONFIG = JSON.stringify({
       http: { port: 3003, jwtSecret: 'segredo-de-teste' },
       pluggy: { webhookUrl: 'https://pluggy-connector.test/webhooks/pluggy', credentialEncryptionKey: configuredKey },
+      log: { openSearch: { url: 'https://user:pass@opensearch.test:12345', index: 'radar-pluggy-logs-test' } },
     })
 
     expect(loadConfig(env).credentialEncryptionKey).toBe(configuredKey)
@@ -169,6 +213,7 @@ describe('loadConfig', () => {
         webhookUrl: 'https://pluggy-connector.test/webhooks/pluggy',
         credentialEncryptionKey: randomBytes(32).toString('base64'),
       },
+      log: { openSearch: { url: 'https://user:pass@opensearch.test:12345', index: 'radar-pluggy-logs-test' } },
     })
 
     expect(loadConfig(env).credentialEncryptionKey).toBe(envKey)

@@ -12,6 +12,7 @@ export function validConfigEnv(): NodeJS.ProcessEnv {
     CONFIG: JSON.stringify({
       http: { port: 3003, jwtSecret: 'segredo-de-teste' },
       pluggy: { webhookUrl: 'https://pluggy-connector.test/webhooks/pluggy' },
+      log: { openSearch: { url: 'https://user:pass@opensearch.test:12345', index: 'radar-pluggy-logs-test' } },
     }),
     DATABASES: JSON.stringify({
       main: {

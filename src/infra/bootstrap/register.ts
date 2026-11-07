@@ -2,7 +2,8 @@ import { asClass, asFunction, asValue, createContainer, InjectionMode, type Awil
 import type { Transaction } from 'sequelize'
 import { getModels, type DB } from '../db/models.js'
 import type { Config } from '../config/config.js'
-import { createLogger, type Logger } from '../tools/log/logger.js'
+import { consoleLogWriter, createLogger, type Logger, type LogWriter } from '../tools/log/logger.js'
+import { OpenSearchLogShipper } from '../tools/log/opensearch-log-shipper.js'
 import { PluggyClientGateway } from '../../adapters/gateways/pluggy-client.gateway.js'
 import { PluggyCallRecorder } from '../../adapters/gateways/pluggy-call-recorder.js'
 import { PluggyItemsGateway } from '../../adapters/gateways/pluggy-items.gateway.js'
@@ -72,6 +73,8 @@ export type SetTransaction = (name: string, transaction: Transaction | null) => 
 export type AppContainer = {
   rootContainer: AppContainerInstance
   db: DB
+  // Destino único das linhas de log do processo: stdout em ambiente local, OpenSearch nos demais.
+  logWriter: LogWriter
   logger: Logger
   getTransaction: GetTransaction
   setTransaction: SetTransaction
@@ -162,12 +165,15 @@ export function setupContainer(config: Config): AppContainerInstance {
   container.register({
     // Config já validada por `infra/config.ts` — nenhum default aqui, ausência recusou na subida.
     db: asFunction(() => getModels(config.database)).singleton(),
-    // `() => createLogger()`, nunca `asFunction(createLogger)` direto: o parâmetro de
-    // `createLogger` se chama `writer`, e o `InjectionMode.PROXY` deste container injeta pelo
-    // NOME do parâmetro — sem o wrapper, o Awilix passaria o cradle inteiro (um objeto) como
-    // `writer`, e o primeiro `logger.info/warn/error` de verdade quebraria com "writer is not
-    // a function" (achado em produção: crashava no primeiro log do boot, `index.ts`).
-    logger: asFunction(() => createLogger()).scoped(),
+    // Singleton: um buffer de envio por processo, fechado no encerramento (`src/index.ts`).
+    logWriter: asFunction(() => (config.openSearchLog
+      ? new OpenSearchLogShipper(config.openSearchLog)
+      : consoleLogWriter)).singleton(),
+    // Wrapper explícito, nunca `asFunction(createLogger)` direto: o `InjectionMode.PROXY` deste
+    // container passaria o cradle inteiro (um objeto) como `writer`, e o primeiro
+    // `logger.info/warn/error` quebraria com "writer is not a function" (achado em produção:
+    // crashava no primeiro log do boot, `index.ts`).
+    logger: asFunction(({ logWriter }: AppContainer) => createLogger(logWriter.write)).scoped(),
     webhookUrl: asValue(config.webhookUrl),
     credentialEncryptionKey: asValue(config.credentialEncryptionKey),
 

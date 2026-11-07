@@ -10,6 +10,31 @@ export interface Logger {
   error(message: string, extra?: unknown): void
 }
 
+export type LogLevel = 'info' | 'warn' | 'error'
+
+// Destino das linhas já sanitizadas. Um por processo (`logWriter` no container): stdout em ambiente
+// local, OpenSearch nos demais (`opensearch-log-shipper.ts`). `write` é propriedade (não método)
+// para poder ser passado solto a `createLogger`.
+export interface LogWriter {
+  readonly write: (level: LogLevel, line: string) => void
+  close(): Promise<void>
+}
+
+export const consoleLogWriter: LogWriter = {
+  write: (level, line) => {
+    if (level === 'error') {
+      console.error(line)
+      return
+    }
+    if (level === 'warn') {
+      console.warn(line)
+      return
+    }
+    console.log(line)
+  },
+  close: async () => {},
+}
+
 const ALLOWED_CONTEXT_KEYS = new Set([
   'uuid',
   'requestId',
@@ -127,10 +152,10 @@ function sanitizeContext(context: Record<string, unknown>): Record<string, unkno
   return result
 }
 
-export function createLogger(writer?: (level: 'info' | 'warn' | 'error', line: string) => void): Logger {
+export function createLogger(writer: LogWriter['write']): Logger {
   let context: Record<string, unknown> = {}
 
-  const write = (level: 'info' | 'warn' | 'error', message: string, extra?: unknown): void => {
+  const write = (level: LogLevel, message: string, extra?: unknown): void => {
     const safeContext = sanitizeContext(context)
     const safeExtra = sanitizeExtra(extra)
     const payload: Record<string, unknown> = {
@@ -142,22 +167,7 @@ export function createLogger(writer?: (level: 'info' | 'warn' | 'error', line: s
       payload.extra = safeExtra
     }
 
-    const line = JSON.stringify(payload)
-
-    if (writer) {
-      writer(level, line)
-      return
-    }
-
-    if (level === 'error') {
-      console.error(line)
-      return
-    }
-    if (level === 'warn') {
-      console.warn(line)
-      return
-    }
-    console.log(line)
+    writer(level, JSON.stringify(payload))
   }
 
   return {

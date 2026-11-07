@@ -64,7 +64,8 @@ src/
 │   ├── config/
 │   │   ├── config.ts      # `loadConfig()` — lê `config.json`/`databases.json` (dev) ou as env vars
 │   │   │                  # `CONFIG`/`DATABASES` (qualquer `NODE_ENV` fora de "development"), mesma
-│   │   │                  # convenção do `oplab-radar-api`
+│   │   │                  # convenção do `oplab-radar-api`. Fora de development exige
+│   │   │                  # `CONFIG.log.openSearch.{url,index}` (destino único de log)
 │   │   ├── config.json           # Real, gitignored — segredo de dev local (porta, jwtSecret, webhookUrl)
 │   │   ├── databases.json        # Real, gitignored — conexão de dev local
 │   │   ├── config.example.json    # Molde SEM segredo, versionado
@@ -80,8 +81,11 @@ src/
 │   │   └── middleware/           # `authenticate.middleware.ts`, `request-scope.middleware.ts`
 │   ├── tools/
 │   │   └── log/
-│   │       └── logger.ts         # Logger do processo — consumido só via `DefaultGateway`, nunca
-│   │                              # importado por interactor
+│   │       ├── logger.ts         # Logger do processo — consumido só via `DefaultGateway`, nunca
+│   │       │                      # importado por interactor. Escreve num `LogWriter` (`logWriter`
+│   │       │                      # no container): stdout em development, OpenSearch nos demais
+│   │       └── opensearch-log-shipper.ts  # `LogWriter` fora de development: `_bulk` do OpenSearch
+│   │                                      # (Aiven), destino ÚNICO — sem tee para o stdout
 │   └── worker/
 │       └── webhook-drainer.ts    # Ver seção 4 — não é poller/cron, é reativo ao webhook + boot
 └── shared/                # Fronteira Decimal, ApplicationError/ERROR_TYPE
