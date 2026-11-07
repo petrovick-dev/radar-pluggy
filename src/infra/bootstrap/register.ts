@@ -4,6 +4,7 @@ import { getModels, type DB } from '../db/models.js'
 import type { Config } from '../config/config.js'
 import { consoleLogWriter, createLogger, type Logger, type LogWriter } from '../tools/log/logger.js'
 import { OpenSearchLogShipper } from '../tools/log/opensearch-log-shipper.js'
+import { TeeLogWriter } from '../tools/log/tee-log-writer.js'
 import { PluggyClientGateway } from '../../adapters/gateways/pluggy-client.gateway.js'
 import { PluggyCallRecorder } from '../../adapters/gateways/pluggy-call-recorder.js'
 import { PluggyItemsGateway } from '../../adapters/gateways/pluggy-items.gateway.js'
@@ -73,7 +74,7 @@ export type SetTransaction = (name: string, transaction: Transaction | null) => 
 export type AppContainer = {
   rootContainer: AppContainerInstance
   db: DB
-  // Destino único das linhas de log do processo: stdout em ambiente local, OpenSearch nos demais.
+  // Destino das linhas de log: stdout, mais o OpenSearch quando `OPENSEARCH_URL` está definida.
   logWriter: LogWriter
   logger: Logger
   getTransaction: GetTransaction
@@ -167,7 +168,7 @@ export function setupContainer(config: Config): AppContainerInstance {
     db: asFunction(() => getModels(config.database)).singleton(),
     // Singleton: um buffer de envio por processo, fechado no encerramento (`src/index.ts`).
     logWriter: asFunction(() => (config.openSearchLog
-      ? new OpenSearchLogShipper(config.openSearchLog)
+      ? new TeeLogWriter([consoleLogWriter, new OpenSearchLogShipper(config.openSearchLog)])
       : consoleLogWriter)).singleton(),
     // Wrapper explícito, nunca `asFunction(createLogger)` direto: o `InjectionMode.PROXY` deste
     // container passaria o cradle inteiro (um objeto) como `writer`, e o primeiro

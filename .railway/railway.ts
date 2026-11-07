@@ -28,6 +28,9 @@ export default defineRailway(() => {
       // Mesmo banco físico do `oplab-radar-api` (schema `oplab_radar`, mesmo Aiven) — referência
       // resolvida pelo próprio Railway, nunca em texto puro neste arquivo nem no meu contexto.
       DATABASES: '${{oplab-radar-api.DATABASES}}',
+      // Mesmo OpenSearch (Aiven) em que o `oplab-radar-api` grava os logs — referência resolvida pelo
+      // Railway, como `DATABASES`. Com ela definida, o log vai para o stdout e para o OpenSearch.
+      OPENSEARCH_URL: '${{oplab-radar-api.OPENSEARCH_URL}}',
       // `pluggy.credentialEncryptionKey` mora dentro do `CONFIG` — decisão explícita do usuário:
       // este tipo de config vive no blob de config, não em variável de ambiente solta.
       // `preserve()` impede que `config apply` sobrescreva com valor vazio a cada reaplicação.

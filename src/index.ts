@@ -55,7 +55,7 @@ function shutdown(signal: NodeJS.Signals): void {
     if (err) {
       logger.error('falha ao encerrar o servidor HTTP', { err })
     }
-    // Envia o que ainda está no buffer de log (OpenSearch fora do ambiente local) antes de sair.
+    // Envia o que ainda está no buffer do OpenSearch (quando ligado) antes de sair.
     void container.resolve('logWriter').close().finally(() => process.exit(err ? 1 : 0))
   })
 }
