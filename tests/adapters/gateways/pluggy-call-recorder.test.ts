@@ -72,7 +72,7 @@ describe('PluggyCallRecorder', () => {
   function buildRecorder() {
     const container = {
       db: { models: { pluggyCall: model } },
-      logger: { addContext: () => {}, info: () => {}, warn: () => {}, error: () => {} },
+      logWriter: { write: () => {}, close: async () => {} },
       getTransaction: () => null,
     } as unknown as AppContainer
     return new PluggyCallRecorder(container)
@@ -121,12 +121,16 @@ describe('PluggyCallRecorder', () => {
   it('falha ao persistir nunca lança para quem chamou (cai em aviso de log, D25)', async () => {
     const container = {
       db: { models: { pluggyCall: { create: async () => { throw new Error('conexão caiu') } } } },
+      logWriter: { write: (level: string, line: string) => written.push({ level, line }), close: async () => {} },
       getTransaction: () => null,
     } as unknown as AppContainer
+    const written: { level: string; line: string }[] = []
     const recorder = new PluggyCallRecorder(container)
 
     expect(() => recorder.record(baseEvent())).not.toThrow()
     // Se a rejeição escapasse sem tratamento, o processo de teste falharia com unhandled rejection.
     await flushMicrotasks()
+    // O aviso sai pelo destino de log do processo (OpenSearch fora do ambiente local), não pelo console.
+    expect(written.map((entry) => entry.level)).toEqual(['warn'])
   })
 })

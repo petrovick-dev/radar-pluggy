@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import { setupContainer } from '../../../src/infra/bootstrap/register.js'
 import { createScope } from '../../../src/infra/bootstrap/scope.js'
 import { SyncPluggyPositionInteractor } from '../../../src/interactors/pluggy-position/sync/sync-pluggy-position.interactor.js'
@@ -10,6 +10,8 @@ import { CheckPluggyCredentialInteractor } from '../../../src/interactors/pluggy
 import { CheckHealthInteractor } from '../../../src/interactors/health/check/check-health.interactor.js'
 import { PersonRep } from '../../../src/adapters/repositories/person.rep.js'
 import { testAppConfig } from '../../support/test-app-config.js'
+import { consoleLogWriter } from '../../../src/infra/tools/log/logger.js'
+import { OpenSearchLogShipper } from '../../../src/infra/tools/log/opensearch-log-shipper.js'
 
 // Registro errado no container só aparece na hora de resolver — chave com typo, dependência que
 // ninguém registrou, ciclo. Este teste resolve a raiz do fluxo e força a construção da árvore
@@ -19,6 +21,35 @@ describe('container do processo', () => {
 
   afterAll(async () => {
     await container.resolve('db').connections.main?.close()
+  })
+
+  it('sem destino OpenSearch (ambiente local) os logs vão só para o stdout', () => {
+    expect(container.resolve('logWriter')).toBe(consoleLogWriter)
+  })
+
+  it('com destino OpenSearch os logs vão só para o OpenSearch, sem stdout', async () => {
+    const remote = setupContainer({
+      ...testAppConfig(),
+      openSearchLog: { url: 'https://user:pass@opensearch.test:1', index: 'radar-pluggy-logs-test' },
+    })
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ errors: false }), { status: 200 }),
+    )
+    const consoleSpies = [vi.spyOn(console, 'log'), vi.spyOn(console, 'warn'), vi.spyOn(console, 'error')]
+    try {
+      const logWriter = remote.resolve('logWriter')
+      expect(logWriter).toBeInstanceOf(OpenSearchLogShipper)
+
+      createScope(remote, 'test-request-id').resolve('logger').info('subiu')
+      await logWriter.close()
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(String(fetchSpy.mock.calls[0]?.[1]?.body)).toContain('"message":"subiu"')
+      for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled()
+    } finally {
+      vi.restoreAllMocks()
+    }
   })
 
   it('resolve o interactor de sincronização de posição com a árvore inteira de dependências', () => {

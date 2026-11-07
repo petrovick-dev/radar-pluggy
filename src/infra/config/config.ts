@@ -42,7 +42,11 @@ export type Config = {
    * parâmetro a `encryptSecret`/`decryptSecret` no ponto de uso — nunca lido de `process.env` ali. */
   credentialEncryptionKey: string
   database: DatabaseConnectionConfig
+  /** Destino dos logs fora do ambiente local. Ausente só em development, onde o log vai para o stdout. */
+  openSearchLog?: OpenSearchLogConfig
 }
+
+export type OpenSearchLogConfig = { url: string; index: string }
 
 const MIN_PORT = 1
 const MAX_PORT = 65535
@@ -61,8 +65,7 @@ const DATABASES_JSON_PATH = resolve(CONFIG_DIR, 'databases.json')
 type RawSource = { config: unknown; databases: unknown }
 
 function readJsonSource(env: NodeJS.ProcessEnv): RawSource {
-  const nodeEnv = env.NODE_ENV
-  if (nodeEnv === undefined || nodeEnv === 'development') {
+  if (isLocal(env)) {
     return {
       config: JSON.parse(readFileSync(CONFIG_JSON_PATH, 'utf8')) as unknown,
       databases: JSON.parse(readFileSync(DATABASES_JSON_PATH, 'utf8')) as unknown,
@@ -87,6 +90,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       sessionIntrospection?: { url?: string; serviceToken?: string; timeoutMs?: number }
     }
     pluggy?: { webhookUrl?: string; credentialEncryptionKey?: string }
+    log?: { openSearch?: { url?: unknown; index?: unknown } }
   }
   const { main } = source.databases as { main?: Record<string, unknown> }
 
@@ -126,7 +130,32 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     port, jwtSecret, corsAllowedOrigins,
     ...(sessionIntrospection ? { sessionIntrospection } : {}),
     webhookUrl, credentialEncryptionKey, database: readDatabase(main, env),
+    ...(isLocal(env) ? {} : { openSearchLog: readOpenSearchLog(config.log?.openSearch) }),
   }
+}
+
+function isLocal(env: NodeJS.ProcessEnv): boolean {
+  return env.NODE_ENV === undefined || env.NODE_ENV === 'development'
+}
+
+// Fora do ambiente local o OpenSearch é o ÚNICO destino de log (decisão do usuário) — sem ele o
+// processo rodaria sem log nenhum, então ausência recusa a subida em vez de cair para o stdout.
+function readOpenSearchLog(value: { url?: unknown; index?: unknown } | undefined): OpenSearchLogConfig {
+  const invalid = (detail: string): ApplicationError =>
+    new ApplicationError('PLUGGY_CONNECTOR_CONFIG_INVALID', { reason: `log.openSearch.${detail}` })
+
+  if (typeof value?.url !== 'string') throw invalid('url is required outside development')
+  if (typeof value.index !== 'string' || value.index.trim() === '') throw invalid('index is required outside development')
+  let url: URL
+  try {
+    url = new URL(value.url)
+  } catch {
+    throw invalid('url is invalid')
+  }
+  if (url.protocol !== 'https:' || !url.username || !url.password) {
+    throw invalid('url must be https:// with user and password')
+  }
+  return { url: value.url, index: value.index }
 }
 
 function readSessionIntrospection(value: {

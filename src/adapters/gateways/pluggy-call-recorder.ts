@@ -12,7 +12,7 @@ export type PluggyCallEvent = CreatePluggyCallProps
 // transação de um escopo de requisição — a gravação é sempre autocommit (D25), fora da transação de
 // quem chamou.
 //
-// Logger PRÓPRIO (`createLogger()`), nunca `params.logger` injetado: aquele registro é `.scoped()`
+// Logger PRÓPRIO (`createLogger(params.logWriter.write)`), nunca `params.logger` injetado: aquele registro é `.scoped()`
 // por unidade de trabalho — capturá-lo aqui, num singleton resolvido uma única vez (na primeira
 // unidade de trabalho que passar por este serviço), prenderia o contexto (uuid, itemId) daquela
 // primeira requisição em todo aviso de falha futuro, de qualquer requisição.
@@ -22,7 +22,7 @@ export class PluggyCallRecorder {
 
   constructor(params: AppContainer) {
     this.model = params.db.models.pluggyCall
-    this.logger = createLogger()
+    this.logger = createLogger(params.logWriter.write)
   }
 
   // Nunca `async` do ponto de vista de quem chama — dispara e não bloqueia (D25). Falha cai em
