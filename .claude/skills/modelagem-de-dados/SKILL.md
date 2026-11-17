@@ -56,27 +56,6 @@ Sequelize (nome da classe/factory) e repositório continuam com o nome de domín
 
 A tradução `snake_case` → `camelCase` acontece só na fronteira model→entity, nunca em outra camada.
 
-## Coluna de lista leva comment
-
-Decisão do dono, 2026-11-17. Toda coluna `STRING`/`CHAR` que guarda uma lista fechada de valores
-validada por constante no código (`status`, `type`, `state`, ...) — ou `ENUM`, se algum dia existir —
-leva `comment` na migration com o **nome da constante** e o **significado de cada valor**, para o
-banco se explicar sozinho:
-
-```js
-state: {
-  type: Sequelize.STRING(20),
-  allowNull: false,
-  comment: 'Valores (WEBHOOK_EVENT_STATES): PENDING = aguardando o worker; PROCESSING = em processamento; SUCCEEDED = processado.',
-},
-```
-
-- Valor novo na constante = migration **nova** atualizando o comment (`changeColumn` repetindo
-  exatamente tipo, `allowNull` e default da coluna), nunca editando a migration antiga.
-- O teste da migration confere que cada valor da constante (importada do código) aparece no comment.
-- Coluna cujo valor só vem da Pluggy, sem constante no código (`accounts.type`, `positions.subtype`,
-  ...), não entra: não há lista fechada para documentar.
-
 ## Idempotência de escrita
 
 Reentrega de webhook e resposta de sincronização repetida são o caso normal, não a exceção (ver
@@ -104,5 +83,4 @@ Já rodou em algum ambiente (mesmo que só o seu). Corrija com uma nova migratio
 - [ ] Constraint de unicidade real para o identificador que garante idempotência
 - [ ] `allowNull: false` em todo campo obrigatório de cálculo
 - [ ] `down` desfaz na ordem inversa exata do `up`
-- [ ] Coluna de lista (constante no código) com `comment` listando cada valor e o significado
 - [ ] Model espelha a migration, com um método de tradução `snake_case` → `camelCase` na fronteira
