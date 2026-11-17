@@ -56,6 +56,28 @@ Sequelize (nome da classe/factory) e repositório continuam com o nome de domín
 
 A tradução `snake_case` → `camelCase` acontece só na fronteira model→entity, nunca em outra camada.
 
+## Coluna de lista leva `comment`
+
+Decisão do dono (2026-11-17): toda coluna `STRING`/`CHAR` que guarda um vocabulário fechado deste
+serviço — valores de uma constante do código (ex.: `WEBHOOK_EVENT_STATES`, `PLUGGY_CALL_TRIGGERS`) —
+leva `comment` na migration, com o nome da constante e o significado de cada valor. `ENUM` do MySQL
+segue a mesma regra (e continua desaconselhado: valor novo exigiria `ALTER`).
+
+```js
+state: {
+  type: Sequelize.STRING(20),
+  allowNull: false,
+  comment: 'Valores (WEBHOOK_EVENT_STATES): PENDING = na fila; PROCESSING = em processamento; SUCCEEDED = processado.',
+},
+```
+
+- Valor novo na constante = migration nova atualizando o `comment` (`changeColumn` repetindo tipo,
+  null e default). Nunca editar a migration antiga.
+- O teste da migration importa a constante e confere que cada valor aparece no `comment` — a
+  constante fica exportada da entity (ou do módulo de vocabulário) para isso.
+- Coluna cujo vocabulário é da Pluggy sem constante neste código (`accounts.type`,
+  `positions.subtype`, `webhook_events.event`) fica sem essa exigência.
+
 ## Idempotência de escrita
 
 Reentrega de webhook e resposta de sincronização repetida são o caso normal, não a exceção (ver
@@ -82,5 +104,6 @@ Já rodou em algum ambiente (mesmo que só o seu). Corrija com uma nova migratio
 - [ ] FK com `references` e `onDelete` explícito, apontando **para** tabela existente, nunca alterando-a
 - [ ] Constraint de unicidade real para o identificador que garante idempotência
 - [ ] `allowNull: false` em todo campo obrigatório de cálculo
+- [ ] Coluna de lista (constante do código) com `comment` listando cada valor e o teste conferindo
 - [ ] `down` desfaz na ordem inversa exata do `up`
 - [ ] Model espelha a migration, com um método de tradução `snake_case` → `camelCase` na fronteira

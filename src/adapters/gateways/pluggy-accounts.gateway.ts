@@ -1,12 +1,13 @@
 import { Decimal } from 'decimal.js'
 import { ApplicationError } from '../../shared/application-error.js'
 import { pluggySdkError, toDateOrUndefined, type PluggyConnectorClient } from './pluggy-client.gateway.js'
+import {
+  CREDIT_HOLDER_TYPES,
+  CREDIT_STATUS_VALUES,
+  type CreditHolderType,
+  type CreditStatus,
+} from '../../entities/pluggy-account.js'
 
-const CREDIT_STATUS_VALUES = ['ACTIVE', 'BLOCKED', 'CANCELLED'] as const
-type CreditStatus = (typeof CREDIT_STATUS_VALUES)[number]
-
-const CREDIT_HOLDER_TYPES = ['MAIN', 'ADDITIONAL'] as const
-type CreditHolderType = (typeof CREDIT_HOLDER_TYPES)[number]
 
 export interface PluggyAccountDto {
   accountId: string

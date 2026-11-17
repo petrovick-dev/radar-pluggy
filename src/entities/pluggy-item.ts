@@ -4,7 +4,7 @@ import { ApplicationError } from '../shared/application-error.js'
 // decide o que o resto do sistema faz com ele (ver design.md, decisão D4, sobre por que
 // `executionStatus` NÃO entra nesse mesmo rigor). `WAITING_USER_ACTION`/`MERGING` (D7): ausentes do
 // conjunto original, presentes no `.d.ts` do SDK instalado (`ITEM_STATUSES`).
-const VALID_STATUSES = [
+export const VALID_STATUSES = [
   'UPDATING',
   'LOGIN_ERROR',
   'OUTDATED',

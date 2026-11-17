@@ -1,6 +1,14 @@
 import type { Decimal } from 'decimal.js'
 import { ApplicationError } from '../shared/application-error.js'
 
+// Vocabulário fechado de `creditData` (SDK `account.d.ts`), validado pelo gateway de borda na entrada.
+// Comentado nas colunas `status`/`holder_type` de `radar_pluggy_accounts` (modelagem-de-dados).
+export const CREDIT_STATUS_VALUES = ['ACTIVE', 'BLOCKED', 'CANCELLED'] as const
+export type CreditStatus = (typeof CREDIT_STATUS_VALUES)[number]
+
+export const CREDIT_HOLDER_TYPES = ['MAIN', 'ADDITIONAL'] as const
+export type CreditHolderType = (typeof CREDIT_HOLDER_TYPES)[number]
+
 const ALLOWED_CREATE_FIELDS = new Set([
   'itemId',
   'accountId',
@@ -56,8 +64,8 @@ export interface CreatePluggyAccountProps {
   minimumPayment?: Decimal | undefined
   creditLimit?: Decimal | undefined
   isLimitFlexible?: boolean | undefined
-  status?: 'ACTIVE' | 'BLOCKED' | 'CANCELLED' | undefined
-  holderType?: 'MAIN' | 'ADDITIONAL' | undefined
+  status?: CreditStatus | undefined
+  holderType?: CreditHolderType | undefined
   // Campos capturados na change pluggy-complete-data-capture (spec pluggy-account) — antes
   // descartados no gateway antes de chegar aqui. `taxNumber` é CPF/CNPJ do titular — decisão
   // explícita do usuário. `bankData`/`disaggregatedCreditLimits` são objetos aninhados complexos do
@@ -91,8 +99,8 @@ export class PluggyAccount {
   private readonly minimumPayment: Decimal | undefined
   private readonly creditLimit: Decimal | undefined
   private readonly isLimitFlexible: boolean | undefined
-  private readonly status: 'ACTIVE' | 'BLOCKED' | 'CANCELLED' | undefined
-  private readonly holderType: 'MAIN' | 'ADDITIONAL' | undefined
+  private readonly status: CreditStatus | undefined
+  private readonly holderType: CreditHolderType | undefined
   private readonly taxNumber: string | undefined
   private readonly bankData: Record<string, unknown> | undefined
   private readonly disaggregatedCreditLimits: Record<string, unknown>[] | undefined
@@ -244,11 +252,11 @@ export class PluggyAccount {
     return this.isLimitFlexible
   }
 
-  getStatus(): 'ACTIVE' | 'BLOCKED' | 'CANCELLED' | undefined {
+  getStatus(): CreditStatus | undefined {
     return this.status
   }
 
-  getHolderType(): 'MAIN' | 'ADDITIONAL' | undefined {
+  getHolderType(): CreditHolderType | undefined {
     return this.holderType
   }
 
