@@ -1,7 +1,7 @@
 import type { Decimal } from 'decimal.js'
 import { ApplicationError } from '../shared/application-error.js'
 
-export const ALLOWED_TYPES = new Set(['BUY', 'SELL', 'TAX', 'TRANSFER', 'INTEREST', 'AMORTIZATION'])
+const ALLOWED_TYPES = new Set(['BUY', 'SELL', 'TAX', 'TRANSFER', 'INTEREST', 'AMORTIZATION'])
 
 const ALLOWED_CREATE_FIELDS = new Set([
   'itemId',

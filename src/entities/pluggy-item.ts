@@ -3,7 +3,7 @@ import { ApplicationError } from '../shared/application-error.js'
 // Conjunto documentado em docs.pluggy.ai/docs/item-lifecycle — é o campo `status` do Item que
 // decide o que o resto do sistema faz com ele (ver design.md, decisão D4, sobre por que
 // `executionStatus` NÃO entra nesse mesmo rigor).
-export const VALID_STATUSES = ['UPDATING', 'LOGIN_ERROR', 'OUTDATED', 'WAITING_USER_INPUT', 'UPDATED'] as const
+const VALID_STATUSES = ['UPDATING', 'LOGIN_ERROR', 'OUTDATED', 'WAITING_USER_INPUT', 'UPDATED'] as const
 
 export type PluggyItemStatus = (typeof VALID_STATUSES)[number]
 
