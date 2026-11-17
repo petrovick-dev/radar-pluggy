@@ -1,6 +1,6 @@
 import { ApplicationError } from '../shared/application-error.js'
 
-const ALLOWED_REFERENCE_TYPES = new Set(['ACCOUNT', 'INVESTMENT'])
+export const ALLOWED_REFERENCE_TYPES = new Set(['ACCOUNT', 'INVESTMENT'])
 const ALLOWED_CREATE_FIELDS = new Set([
   'itemId',
   'referenceId',
